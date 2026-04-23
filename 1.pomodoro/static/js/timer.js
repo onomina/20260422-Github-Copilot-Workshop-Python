@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			this.pomodoroCount = 0;               // 完了サイクル数
 			this.focusSeconds = 0;                // 累計集中時間（秒）
 			this.timerInterval = null;            // setIntervalのID
+			this.lastTickAt = Date.now();
 		}
 
 		getTodayKey() {
@@ -154,7 +155,48 @@ document.addEventListener('DOMContentLoaded', () => {
 	const pomodoroCountElem = document.getElementById('pomodoro-count');
 	const focusTimeElem = document.getElementById('focus-time');
 	const progressCanvas = document.getElementById('progressCanvas');
+	const focusBackground = document.getElementById('focus-background');
 	const ctx = progressCanvas.getContext('2d');
+	const PROGRESS_COLORS = {
+		start: '#4e8cff',
+		middle: '#ffd54f',
+		end: '#ff5252'
+	};
+	let progressAnimationId = null;
+
+	function hexToRgb(hex) {
+		const normalized = hex.replace('#', '');
+		return {
+			r: parseInt(normalized.slice(0, 2), 16),
+			g: parseInt(normalized.slice(2, 4), 16),
+			b: parseInt(normalized.slice(4, 6), 16)
+		};
+	}
+
+	function interpolateColor(fromHex, toHex, ratio) {
+		const from = hexToRgb(fromHex);
+		const to = hexToRgb(toHex);
+		const value = Math.max(0, Math.min(1, ratio));
+		const r = Math.round(from.r + (to.r - from.r) * value);
+		const g = Math.round(from.g + (to.g - from.g) * value);
+		const b = Math.round(from.b + (to.b - from.b) * value);
+		return `rgb(${r}, ${g}, ${b})`;
+	}
+
+	function getProgressColor(percent) {
+		const value = Math.max(0, Math.min(1, percent));
+		if (value < 0.5) {
+			return interpolateColor(PROGRESS_COLORS.start, PROGRESS_COLORS.middle, value * 2);
+		}
+		return interpolateColor(PROGRESS_COLORS.middle, PROGRESS_COLORS.end, (value - 0.5) * 2);
+	}
+
+	function updateFocusBackground() {
+		if (!focusBackground) {
+			return;
+		}
+		focusBackground.classList.toggle('active', timer.isRunning && timer.isWork);
+	}
 
 	/**
 	 * 画面表示を最新状態に更新
@@ -166,6 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		statusDisplay.textContent = timer.isWork ? `作業中（${timer.currentSet}/${timer.SETS_PER_CYCLE}）` : '休憩中';
 		pomodoroCountElem.textContent = timer.pomodoroCount;
 		focusTimeElem.textContent = Math.floor(timer.focusSeconds / 60) + '分';
+		updateFocusBackground();
 		drawProgress();
 	}
 
@@ -173,9 +216,14 @@ document.addEventListener('DOMContentLoaded', () => {
 	 * 円形プログレスバーを描画
 	 */
 	function drawProgress() {
-		const total = (timer.isWork ? timer.WORK_MINUTES : timer.BREAK_MINUTES) * 60;
+		const total = Math.max(1, (timer.isWork ? timer.WORK_MINUTES : timer.BREAK_MINUTES) * 60);
 		const current = timer.minutes * 60 + timer.seconds;
-		const percent = 1 - current / total;
+		let interpolatedCurrent = current;
+		if (timer.isRunning && current > 0) {
+			const elapsedSinceLastTick = Math.min(1, Math.max(0, (Date.now() - timer.lastTickAt) / 1000));
+			interpolatedCurrent = Math.max(0, current - elapsedSinceLastTick);
+		}
+		const percent = Math.max(0, Math.min(1, 1 - interpolatedCurrent / total));
 		ctx.clearRect(0, 0, progressCanvas.width, progressCanvas.height);
 		ctx.beginPath();
 		ctx.arc(90, 90, 80, 0, 2 * Math.PI);
@@ -184,9 +232,32 @@ document.addEventListener('DOMContentLoaded', () => {
 		ctx.stroke();
 		ctx.beginPath();
 		ctx.arc(90, 90, 80, -0.5 * Math.PI, (2 * Math.PI) * percent - 0.5 * Math.PI);
-		ctx.strokeStyle = timer.isWork ? '#7b5cff' : '#00b894';
+		ctx.strokeStyle = getProgressColor(percent);
 		ctx.lineWidth = 14;
 		ctx.stroke();
+	}
+
+	function animateProgress() {
+		drawProgress();
+		if (timer.isRunning) {
+			progressAnimationId = requestAnimationFrame(animateProgress);
+		} else {
+			progressAnimationId = null;
+		}
+	}
+
+	function startProgressAnimation() {
+		if (progressAnimationId !== null) {
+			return;
+		}
+		progressAnimationId = requestAnimationFrame(animateProgress);
+	}
+
+	function stopProgressAnimation() {
+		if (progressAnimationId !== null) {
+			cancelAnimationFrame(progressAnimationId);
+			progressAnimationId = null;
+		}
 	}
 
 	// イベントハンドラ
@@ -194,12 +265,16 @@ document.addEventListener('DOMContentLoaded', () => {
 	// 「開始」ボタン押下時の処理
 	startBtn.addEventListener('click', () => {
 		if (!timer.isRunning) {
+			timer.lastTickAt = Date.now();
 			timer.timerInterval = setInterval(() => {
 				timer.tick();
+				timer.lastTickAt = Date.now();
 				updateDisplay();
 			}, 1000);
 			timer.isRunning = true;
 			timer.saveState();
+			startProgressAnimation();
+			updateDisplay();
 		}
 	});
 
@@ -209,6 +284,8 @@ document.addEventListener('DOMContentLoaded', () => {
 			clearInterval(timer.timerInterval);
 			timer.isRunning = false;
 			timer.saveState();
+			stopProgressAnimation();
+			updateDisplay();
 		}
 	});
 
@@ -222,6 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		timer.currentSet = 1;
 		updateDisplay();
 		timer.saveState();
+		stopProgressAnimation();
 	});
 
 	// 初期表示
@@ -231,10 +309,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	timer.loadState(); // 状態復元
 	updateDisplay();   // 画面更新
 	if (timer.isRunning) {
+		timer.lastTickAt = Date.now();
 		// 動作中なら自動再開
 		timer.timerInterval = setInterval(() => {
 			timer.tick();
+			timer.lastTickAt = Date.now();
 			updateDisplay();
 		}, 1000);
+		startProgressAnimation();
 	}
 });

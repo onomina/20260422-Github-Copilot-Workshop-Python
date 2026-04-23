@@ -135,6 +135,48 @@ body {
     min-height: 100vh;
     margin: 0;
     font-family: 'Segoe UI', 'Meiryo', sans-serif;
+    position: relative;
+    overflow: hidden;
+}
+.focus-background {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    z-index: 0;
+}
+.focus-background.active {
+    opacity: 1;
+}
+.focus-background::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.32) 1px, transparent 2px);
+    background-size: 38px 38px;
+    animation: float-particles 16s linear infinite;
+}
+.focus-background::after {
+    content: '';
+    position: absolute;
+    width: 220px;
+    height: 220px;
+    left: 50%;
+    top: 50%;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.32);
+    transform: translate(-50%, -50%);
+    animation: pulse-ripple 4s ease-in-out infinite;
+}
+@keyframes float-particles {
+    from { transform: translateY(0); }
+    to { transform: translateY(-38px); }
+}
+@keyframes pulse-ripple {
+    0% { transform: translate(-50%, -50%) scale(0.65); opacity: 0.7; }
+    70% { opacity: 0.18; }
+    100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
 }
 .container {
     background: #f9f9ff;
@@ -146,6 +188,8 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
+    position: relative;
+    z-index: 1;
 }
 .timer-section {
     width: 100%;

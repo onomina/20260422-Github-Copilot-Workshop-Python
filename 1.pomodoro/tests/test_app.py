@@ -13,7 +13,10 @@ class TestPomodoroApp(unittest.TestCase):
     def test_index_route(self):
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
-        self.assertIn('ポモドーロタイマー', response.get_data(as_text=True))
+        html = response.get_data(as_text=True)
+        self.assertIn('ポモドーロタイマー', html)
+        self.assertIn('id="progressCanvas"', html)
+        self.assertIn('id="focus-background"', html)
 
 if __name__ == '__main__':
     unittest.main()
