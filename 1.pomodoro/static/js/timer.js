@@ -1,8 +1,12 @@
+// ビープ音モジュールをインポート
+import { playBeep, unlockAudioContextOnUserGesture } from './beep.js';
 
 
 
 
 document.addEventListener('DOMContentLoaded', () => {
+	// 最初のユーザー操作でAudioContextを有効化（自動再生制限対策）
+	unlockAudioContextOnUserGesture();
 	class PomodoroTimer {
 		constructor(workMinutes, breakMinutes, setsPerCycle) {
 			this.WORK_MINUTES = workMinutes;      // 1セットの作業時間（分）
@@ -45,7 +49,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 		switchSession() {
 			// 作業⇔休憩の切替処理
-			// 作業終了時は集中時間を加算、4セットごとに完了回数+1
+			// どちらの切替時もビープ音
+			playBeep();
 			if (this.isWork) { // 作業終了時のみ集中時間加算
 				this.focusSeconds += this.WORK_MINUTES * 60;
 			}
@@ -81,7 +86,52 @@ document.addEventListener('DOMContentLoaded', () => {
 	}
 
 	// インスタンス生成
-	const timer = new PomodoroTimer(1, 1, 4);
+	// 設定値が保存されていればそれを使う
+	const savedSettings = JSON.parse(localStorage.getItem('pomodoro_settings'));
+	const initialWork = savedSettings?.workMinutes ?? 25;
+	const initialBreak = savedSettings?.breakMinutes ?? 5;
+	const timer = new PomodoroTimer(initialWork, initialBreak, 4);
+	// カスタマイズUI要素取得
+	const workInput = document.getElementById('work-minutes-input');
+	const breakInput = document.getElementById('break-minutes-input');
+	const saveSettingsBtn = document.getElementById('save-settings-btn');
+
+	// 入力欄に現在値を反映
+	if (workInput && breakInput) {
+		workInput.value = timer.WORK_MINUTES;
+		breakInput.value = timer.BREAK_MINUTES;
+	}
+
+	// 「保存」ボタン押下時の処理
+	if (saveSettingsBtn) {
+		saveSettingsBtn.addEventListener('click', () => {
+			const newWork = parseInt(workInput.value, 10);
+			const newBreak = parseInt(breakInput.value, 10);
+			// 値のバリデーション
+			if (isNaN(newWork) || isNaN(newBreak) || newWork < 1 || newBreak < 1) {
+				alert('作業・休憩時間は1分以上で入力してください');
+				return;
+			}
+			// 設定値をlocalStorageに保存
+			localStorage.setItem('pomodoro_settings', JSON.stringify({
+				workMinutes: newWork,
+				breakMinutes: newBreak
+			}));
+			// タイマー本体に反映
+			timer.WORK_MINUTES = newWork;
+			timer.BREAK_MINUTES = newBreak;
+			// 現在の状態もリセット
+			clearInterval(timer.timerInterval);
+			timer.isRunning = false;
+			timer.isWork = true;
+			timer.minutes = timer.WORK_MINUTES;
+			timer.seconds = 0;
+			timer.currentSet = 1;
+			updateDisplay();
+			timer.saveState();
+			alert('タイマー設定を保存しました');
+		});
+	}
 
 
 	const timerDisplay = document.getElementById('timer-display');
