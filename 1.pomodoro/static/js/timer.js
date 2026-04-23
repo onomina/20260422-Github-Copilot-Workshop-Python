@@ -16,6 +16,26 @@ document.addEventListener('DOMContentLoaded', () => {
 	let pomodoroCount = 0;
 	let focusSeconds = 0;
 
+	// localStorageから進捗・状態を復元
+	function loadState() {
+		const data = JSON.parse(localStorage.getItem('pomodoro_state'));
+		if (data) {
+			minutes = data.minutes ?? WORK_MINUTES;
+			seconds = data.seconds ?? 0;
+			isRunning = data.isRunning ?? false;
+			isWork = data.isWork ?? true;
+			currentSet = data.currentSet ?? 1;
+			pomodoroCount = data.pomodoroCount ?? 0;
+			focusSeconds = data.focusSeconds ?? 0;
+		}
+	}
+
+	function saveState() {
+		localStorage.setItem('pomodoro_state', JSON.stringify({
+			minutes, seconds, isWork, currentSet, pomodoroCount, focusSeconds, isRunning
+		}));
+	}
+
 	const timerDisplay = document.getElementById('timer-display');
 	const startBtn = document.getElementById('start-btn');
 	const pauseBtn = document.getElementById('pause-btn');
@@ -35,6 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		pomodoroCountElem.textContent = pomodoroCount;
 		focusTimeElem.textContent = Math.floor(focusSeconds / 60) + '分';
 		drawProgress();
+		saveState();
 	}
 
 	function drawProgress() {
@@ -75,6 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		minutes = isWork ? WORK_MINUTES : BREAK_MINUTES;
 		seconds = 0;
 		updateDisplay();
+		saveState();
 	}
 
 	function tick() {
@@ -91,12 +113,14 @@ document.addEventListener('DOMContentLoaded', () => {
 			seconds--;
 		}
 		updateDisplay();
+		saveState();
 	}
 
 	startBtn.addEventListener('click', () => {
 		if (!isRunning) {
 			timerInterval = setInterval(tick, 1000);
 			isRunning = true;
+			saveState();
 		}
 	});
 
@@ -104,6 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		if (isRunning) {
 			clearInterval(timerInterval);
 			isRunning = false;
+			saveState();
 		}
 	});
 
@@ -115,9 +140,14 @@ document.addEventListener('DOMContentLoaded', () => {
 		seconds = 0;
 		currentSet = 1;
 		updateDisplay();
+		saveState();
 	});
 
 	// 初期表示
+	loadState();
 	updateDisplay();
+	if (isRunning) {
+		timerInterval = setInterval(tick, 1000);
+	}
 });
 
