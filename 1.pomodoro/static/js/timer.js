@@ -7,6 +7,8 @@ import { playBeep, unlockAudioContextOnUserGesture } from './beep.js';
 document.addEventListener('DOMContentLoaded', () => {
 	// 最初のユーザー操作でAudioContextを有効化（自動再生制限対策）
 	unlockAudioContextOnUserGesture();
+	const MAX_STREAK_LOOKBACK_DAYS = 365;
+	const MAX_EXPECTED_DAILY_FOCUS_MULTIPLIER = 2;
 	class PomodoroTimer {
 		constructor(workMinutes, breakMinutes, setsPerCycle) {
 			this.WORK_MINUTES = workMinutes;      // 1セットの作業時間（分）
@@ -70,7 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
 				this.level = data.level ?? 1;
 				this.badges = Array.isArray(data.badges) ? data.badges : [];
 			}
-			this.history = JSON.parse(localStorage.getItem('pomodoro_history')) ?? {};
+			this.history = JSON.parse(localStorage.getItem('pomodoro_history') || '{}');
 		}
 
 		saveGamification() {
@@ -127,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 		calculateCurrentStreak() {
 			let streak = 0;
-			for (let i = 0; i < 365; i++) {
+			for (let i = 0; i < MAX_STREAK_LOOKBACK_DAYS; i++) {
 				const key = this.getPastDateKey(i);
 				const dayData = this.history[key];
 				if (dayData && dayData.completedPomodoros > 0) {
@@ -145,13 +147,11 @@ document.addEventListener('DOMContentLoaded', () => {
 			if (streak >= 3 && !this.badges.includes('3日連続')) {
 				this.badges.push('3日連続');
 			}
-			const weeklyPomodoros = Object.keys(this.history).reduce((total, key) => {
-				const dayDiff = Math.floor((new Date(this.getTodayKey()) - new Date(key)) / (1000 * 60 * 60 * 24));
-				if (dayDiff >= 0 && dayDiff < 7) {
-					return total + (this.history[key]?.completedPomodoros ?? 0);
-				}
-				return total;
-			}, 0);
+			let weeklyPomodoros = 0;
+			for (let i = 0; i < 7; i++) {
+				const key = this.getPastDateKey(i);
+				weeklyPomodoros += this.history[key]?.completedPomodoros ?? 0;
+			}
 			if (weeklyPomodoros >= 10 && !this.badges.includes('今週10回完了')) {
 				this.badges.push('今週10回完了');
 			}
@@ -167,13 +167,13 @@ document.addEventListener('DOMContentLoaded', () => {
 			if (this.isWork) { // 作業終了時のみ集中時間加算
 				const completedFocusSeconds = this.WORK_MINUTES * 60;
 				this.focusSeconds += completedFocusSeconds;
-				this.pomodoroCount++;
 				this.recordPomodoroCompletion(completedFocusSeconds);
 			}
 			this.isWork = !this.isWork; // 作業⇔休憩を反転
 			if (this.isWork) { // 休憩→作業に戻るときセット数を進める
 				this.currentSet++;
 				if (this.currentSet > this.SETS_PER_CYCLE) { // 4セット完了したら
+					this.pomodoroCount++; // サイクル完了回数を加算
 					this.currentSet = 1; // セット番号リセット
 				}
 			}
@@ -312,8 +312,9 @@ document.addEventListener('DOMContentLoaded', () => {
 		monthlyAverageFocusElem.textContent = `${monthlyStats.averageFocusMinutes}分`;
 		updateBar(weeklyCompletionBarElem, weeklyStats.completionRate, 100);
 		updateBar(monthlyCompletionBarElem, monthlyStats.completionRate, 100);
-		updateBar(weeklyFocusBarElem, weeklyStats.averageFocusMinutes, timer.WORK_MINUTES * 2);
-		updateBar(monthlyFocusBarElem, monthlyStats.averageFocusMinutes, timer.WORK_MINUTES * 2);
+		const maxExpectedDailyFocus = timer.WORK_MINUTES * MAX_EXPECTED_DAILY_FOCUS_MULTIPLIER;
+		updateBar(weeklyFocusBarElem, weeklyStats.averageFocusMinutes, maxExpectedDailyFocus);
+		updateBar(monthlyFocusBarElem, monthlyStats.averageFocusMinutes, maxExpectedDailyFocus);
 	}
 
 	/**
