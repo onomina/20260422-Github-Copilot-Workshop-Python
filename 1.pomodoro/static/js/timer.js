@@ -7,6 +7,8 @@ import { playBeep, unlockAudioContextOnUserGesture } from './beep.js';
 document.addEventListener('DOMContentLoaded', () => {
 	// 最初のユーザー操作でAudioContextを有効化（自動再生制限対策）
 	unlockAudioContextOnUserGesture();
+	const MAX_STREAK_LOOKBACK_DAYS = 365;
+	const MAX_EXPECTED_DAILY_FOCUS_MULTIPLIER = 2;
 	class PomodoroTimer {
 		constructor(workMinutes, breakMinutes, setsPerCycle) {
 			this.WORK_MINUTES = workMinutes;      // 1セットの作業時間（分）
@@ -20,6 +22,18 @@ document.addEventListener('DOMContentLoaded', () => {
 			this.pomodoroCount = 0;               // 完了サイクル数
 			this.focusSeconds = 0;                // 累計集中時間（秒）
 			this.timerInterval = null;            // setIntervalのID
+			this.totalXP = 0;                     // 累計XP
+			this.level = 1;                       // レベル
+			this.badges = [];                     // 獲得バッジ一覧
+			this.history = {};                    // 日次履歴
+		}
+
+		getTodayKey() {
+			const now = new Date();
+			const year = now.getFullYear();
+			const month = String(now.getMonth() + 1).padStart(2, '0');
+			const day = String(now.getDate()).padStart(2, '0');
+			return `${year}-${month}-${day}`;
 		}
 
 		getTodayKey() {
@@ -59,12 +73,109 @@ document.addEventListener('DOMContentLoaded', () => {
 			}));
 		}
 
+		loadGamification() {
+			const data = JSON.parse(localStorage.getItem('pomodoro_gamification'));
+			if (data) {
+				this.totalXP = data.totalXP ?? 0;
+				this.level = data.level ?? 1;
+				this.badges = Array.isArray(data.badges) ? data.badges : [];
+			}
+			this.history = JSON.parse(localStorage.getItem('pomodoro_history') || '{}');
+		}
+
+		saveGamification() {
+			localStorage.setItem('pomodoro_gamification', JSON.stringify({
+				totalXP: this.totalXP,
+				level: this.level,
+				badges: this.badges
+			}));
+			localStorage.setItem('pomodoro_history', JSON.stringify(this.history));
+		}
+
+		calculateLevel() {
+			return Math.floor(this.totalXP / 100) + 1;
+		}
+
+		recordPomodoroCompletion(focusSeconds) {
+			const today = this.getTodayKey();
+			if (!this.history[today]) {
+				this.history[today] = { completedPomodoros: 0, focusSeconds: 0 };
+			}
+			this.history[today].completedPomodoros += 1;
+			this.history[today].focusSeconds += focusSeconds;
+			this.totalXP += 25;
+			this.level = this.calculateLevel();
+			this.updateBadges();
+			this.saveGamification();
+		}
+
+		getPastDateKey(daysAgo) {
+			const date = new Date();
+			date.setDate(date.getDate() - daysAgo);
+			const year = date.getFullYear();
+			const month = String(date.getMonth() + 1).padStart(2, '0');
+			const day = String(date.getDate()).padStart(2, '0');
+			return `${year}-${month}-${day}`;
+		}
+
+		getStatsForDays(days) {
+			let completedDays = 0;
+			let totalFocusSeconds = 0;
+			for (let i = 0; i < days; i++) {
+				const key = this.getPastDateKey(i);
+				const dayData = this.history[key];
+				if (dayData && dayData.completedPomodoros > 0) {
+					completedDays += 1;
+				}
+				totalFocusSeconds += dayData?.focusSeconds ?? 0;
+			}
+			return {
+				completionRate: Math.round((completedDays / days) * 100),
+				averageFocusMinutes: Math.round((totalFocusSeconds / days) / 60)
+			};
+		}
+
+		calculateCurrentStreak() {
+			let streak = 0;
+			for (let i = 0; i < MAX_STREAK_LOOKBACK_DAYS; i++) {
+				const key = this.getPastDateKey(i);
+				const dayData = this.history[key];
+				if (dayData && dayData.completedPomodoros > 0) {
+					streak += 1;
+				} else {
+					break;
+				}
+			}
+			return streak;
+		}
+
+		updateBadges() {
+			const streak = this.calculateCurrentStreak();
+			const weeklyStats = this.getStatsForDays(7);
+			if (streak >= 3 && !this.badges.includes('3日連続')) {
+				this.badges.push('3日連続');
+			}
+			let weeklyPomodoros = 0;
+			for (let i = 0; i < 7; i++) {
+				const key = this.getPastDateKey(i);
+				weeklyPomodoros += this.history[key]?.completedPomodoros ?? 0;
+			}
+			if (weeklyPomodoros >= 10 && !this.badges.includes('今週10回完了')) {
+				this.badges.push('今週10回完了');
+			}
+			if (weeklyStats.completionRate === 100 && !this.badges.includes('週間完了率100%')) {
+				this.badges.push('週間完了率100%');
+			}
+		}
+
 		switchSession() {
 			// 作業⇔休憩の切替処理
 			// どちらの切替時もビープ音
 			playBeep();
 			if (this.isWork) { // 作業終了時のみ集中時間加算
-				this.focusSeconds += this.WORK_MINUTES * 60;
+				const completedFocusSeconds = this.WORK_MINUTES * 60;
+				this.focusSeconds += completedFocusSeconds;
+				this.recordPomodoroCompletion(completedFocusSeconds);
 			}
 			this.isWork = !this.isWork; // 作業⇔休憩を反転
 			if (this.isWork) { // 休憩→作業に戻るときセット数を進める
@@ -153,6 +264,18 @@ document.addEventListener('DOMContentLoaded', () => {
 	const statusDisplay = document.getElementById('status');
 	const pomodoroCountElem = document.getElementById('pomodoro-count');
 	const focusTimeElem = document.getElementById('focus-time');
+	const xpValueElem = document.getElementById('xp-value');
+	const levelValueElem = document.getElementById('level-value');
+	const streakDaysElem = document.getElementById('streak-days');
+	const badgeListElem = document.getElementById('badge-list');
+	const weeklyCompletionRateElem = document.getElementById('weekly-completion-rate');
+	const weeklyAverageFocusElem = document.getElementById('weekly-average-focus');
+	const monthlyCompletionRateElem = document.getElementById('monthly-completion-rate');
+	const monthlyAverageFocusElem = document.getElementById('monthly-average-focus');
+	const weeklyCompletionBarElem = document.getElementById('weekly-completion-bar');
+	const weeklyFocusBarElem = document.getElementById('weekly-focus-bar');
+	const monthlyCompletionBarElem = document.getElementById('monthly-completion-bar');
+	const monthlyFocusBarElem = document.getElementById('monthly-focus-bar');
 	const progressCanvas = document.getElementById('progressCanvas');
 	const ctx = progressCanvas.getContext('2d');
 
@@ -166,7 +289,40 @@ document.addEventListener('DOMContentLoaded', () => {
 		statusDisplay.textContent = timer.isWork ? `作業中（${timer.currentSet}/${timer.SETS_PER_CYCLE}）` : '休憩中';
 		pomodoroCountElem.textContent = timer.pomodoroCount;
 		focusTimeElem.textContent = Math.floor(timer.focusSeconds / 60) + '分';
+		xpValueElem.textContent = timer.totalXP;
+		levelValueElem.textContent = `Lv.${timer.level}`;
+		streakDaysElem.textContent = timer.calculateCurrentStreak();
+		renderBadges();
+		renderStats();
 		drawProgress();
+	}
+
+	function renderBadges() {
+		if (timer.badges.length === 0) {
+			badgeListElem.textContent = '達成バッジはまだありません';
+			return;
+		}
+		badgeListElem.innerHTML = timer.badges
+			.map((badge) => `<span class="badge-item">🏅 ${badge}</span>`)
+			.join('');
+	}
+
+	function updateBar(element, value, max) {
+		element.style.width = `${Math.min(100, Math.round((value / max) * 100))}%`;
+	}
+
+	function renderStats() {
+		const weeklyStats = timer.getStatsForDays(7);
+		const monthlyStats = timer.getStatsForDays(30);
+		weeklyCompletionRateElem.textContent = `${weeklyStats.completionRate}%`;
+		weeklyAverageFocusElem.textContent = `${weeklyStats.averageFocusMinutes}分`;
+		monthlyCompletionRateElem.textContent = `${monthlyStats.completionRate}%`;
+		monthlyAverageFocusElem.textContent = `${monthlyStats.averageFocusMinutes}分`;
+		updateBar(weeklyCompletionBarElem, weeklyStats.completionRate, 100);
+		updateBar(monthlyCompletionBarElem, monthlyStats.completionRate, 100);
+		const maxExpectedDailyFocus = timer.WORK_MINUTES * MAX_EXPECTED_DAILY_FOCUS_MULTIPLIER;
+		updateBar(weeklyFocusBarElem, weeklyStats.averageFocusMinutes, maxExpectedDailyFocus);
+		updateBar(monthlyFocusBarElem, monthlyStats.averageFocusMinutes, maxExpectedDailyFocus);
 	}
 
 	/**
@@ -228,6 +384,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	// ===============================
 	// 初期化処理（ページロード時）
 	// ===============================
+	timer.loadGamification(); // ゲーミフィケーション状態復元
 	timer.loadState(); // 状態復元
 	updateDisplay();   // 画面更新
 	if (timer.isRunning) {

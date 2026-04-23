@@ -48,6 +48,34 @@
                     </div>
                 </div>
             </div>
+            <div class="gamification-section">
+                <div class="summary-title">ゲーミフィケーション</div>
+                <div class="summary-content">
+                    <div class="summary-item">
+                        <span id="xp-value">0</span><span class="summary-label"> XP</span>
+                    </div>
+                    <div class="summary-item">
+                        <span id="level-value">Lv.1</span><span class="summary-label"> レベル</span>
+                    </div>
+                </div>
+                <div class="streak-line">🔥 連続日数: <span id="streak-days">0</span>日</div>
+                <div class="badge-list" id="badge-list">達成バッジはまだありません</div>
+            </div>
+            <div class="stats-section">
+                <div class="summary-title">週間 / 月間統計</div>
+                <div class="stats-block">
+                    <div class="stats-label">週間 完了率 <span id="weekly-completion-rate">0%</span></div>
+                    <div class="stats-bar"><div class="stats-fill" id="weekly-completion-bar"></div></div>
+                    <div class="stats-label">週間 平均集中時間 <span id="weekly-average-focus">0分</span></div>
+                    <div class="stats-bar"><div class="stats-fill stats-fill-focus" id="weekly-focus-bar"></div></div>
+                </div>
+                <div class="stats-block">
+                    <div class="stats-label">月間 完了率 <span id="monthly-completion-rate">0%</span></div>
+                    <div class="stats-bar"><div class="stats-fill" id="monthly-completion-bar"></div></div>
+                    <div class="stats-label">月間 平均集中時間 <span id="monthly-average-focus">0分</span></div>
+                    <div class="stats-bar"><div class="stats-fill stats-fill-focus" id="monthly-focus-bar"></div></div>
+                </div>
+            </div>
         </div>
     </div>
     <script src="/static/js/beep.js" type="module"></script>
