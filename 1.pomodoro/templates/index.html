@@ -20,6 +20,22 @@
                 <button id="pause-btn">一時停止</button>
                 <button id="reset-btn">リセット</button>
             </div>
+            <!-- 作業/休憩時間カスタマイズUI -->
+            <div class="customize-section">
+                <div class="customize-title"><span class="customize-icon">⚙️</span>タイマー設定</div>
+                <div class="customize-desc">自分に合った作業・休憩時間を設定できます</div>
+                <div class="customize-inputs">
+                    <div class="customize-row">
+                        <label for="work-minutes-input" class="customize-label">作業</label>
+                        <input type="number" id="work-minutes-input" min="1" max="120" value="25" class="customize-input"> <span class="customize-unit">分</span>
+                    </div>
+                    <div class="customize-row">
+                        <label for="break-minutes-input" class="customize-label">休憩</label>
+                        <input type="number" id="break-minutes-input" min="1" max="60" value="5" class="customize-input"> <span class="customize-unit">分</span>
+                    </div>
+                    <button id="save-settings-btn" class="customize-save-btn">保存してリセット</button>
+                </div>
+            </div>
             <!-- 進捗表示エリア -->
             <div class="progress-summary">
                 <div class="summary-title">今日の進捗</div>
