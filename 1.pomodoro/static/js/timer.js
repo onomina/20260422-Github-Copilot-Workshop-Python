@@ -22,16 +22,27 @@ document.addEventListener('DOMContentLoaded', () => {
 			this.timerInterval = null;            // setIntervalのID
 		}
 
+		getTodayKey() {
+			const now = new Date();
+			const year = now.getFullYear();
+			const month = String(now.getMonth() + 1).padStart(2, '0');
+			const day = String(now.getDate()).padStart(2, '0');
+			return `${year}-${month}-${day}`;
+		}
+
 		loadState() {
 			const data = JSON.parse(localStorage.getItem('pomodoro_state'));
 			if (data) {
+				const today = this.getTodayKey();
+				const stateDate = data.stateDate;
+				const isTodayState = stateDate === today;
 				this.minutes = data.minutes ?? this.WORK_MINUTES;
 				this.seconds = data.seconds ?? 0;
 				this.isRunning = data.isRunning ?? false;
 				this.isWork = data.isWork ?? true;
 				this.currentSet = data.currentSet ?? 1;
-				this.pomodoroCount = data.pomodoroCount ?? 0;
-				this.focusSeconds = data.focusSeconds ?? 0;
+				this.pomodoroCount = isTodayState ? (data.pomodoroCount ?? 0) : 0;
+				this.focusSeconds = isTodayState ? (data.focusSeconds ?? 0) : 0;
 			}
 		}
 
@@ -43,7 +54,8 @@ document.addEventListener('DOMContentLoaded', () => {
 				currentSet: this.currentSet,
 				pomodoroCount: this.pomodoroCount,
 				focusSeconds: this.focusSeconds,
-				isRunning: this.isRunning
+				isRunning: this.isRunning,
+				stateDate: this.getTodayKey()
 			}));
 		}
 
@@ -226,4 +238,3 @@ document.addEventListener('DOMContentLoaded', () => {
 		}, 1000);
 	}
 });
-
