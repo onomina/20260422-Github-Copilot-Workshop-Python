@@ -164,25 +164,42 @@ document.addEventListener('DOMContentLoaded', () => {
 	};
 	let progressAnimationId = null;
 
+	/**
+	 * 16進数カラーコード（#RRGGBB）をRGB値へ変換
+	 */
 	function hexToRgb(hex) {
 		const normalized = hex.replace('#', '');
+		if (normalized.length !== 6) {
+			return { r: 0, g: 0, b: 0 };
+		}
+		const r = parseInt(normalized.slice(0, 2), 16);
+		const g = parseInt(normalized.slice(2, 4), 16);
+		const b = parseInt(normalized.slice(4, 6), 16);
+		if ([r, g, b].some((value) => Number.isNaN(value))) {
+			return { r: 0, g: 0, b: 0 };
+		}
 		return {
-			r: parseInt(normalized.slice(0, 2), 16),
-			g: parseInt(normalized.slice(2, 4), 16),
-			b: parseInt(normalized.slice(4, 6), 16)
+			r,
+			g,
+			b
 		};
 	}
 
-	function interpolateColor(fromHex, toHex, ratio) {
+	/**
+	 * 2つの色を0〜1の割合で線形補間
+	 */
+	function interpolateColor(fromHex, toHex, fraction) {
 		const from = hexToRgb(fromHex);
 		const to = hexToRgb(toHex);
-		const value = Math.max(0, Math.min(1, ratio));
-		const r = Math.round(from.r + (to.r - from.r) * value);
-		const g = Math.round(from.g + (to.g - from.g) * value);
-		const b = Math.round(from.b + (to.b - from.b) * value);
+		const r = Math.round(from.r + (to.r - from.r) * fraction);
+		const g = Math.round(from.g + (to.g - from.g) * fraction);
+		const b = Math.round(from.b + (to.b - from.b) * fraction);
 		return `rgb(${r}, ${g}, ${b})`;
 	}
 
+	/**
+	 * 進捗率（0〜1）に応じて青→黄→赤の色を返す
+	 */
 	function getProgressColor(percent) {
 		const value = Math.max(0, Math.min(1, percent));
 		if (value < 0.5) {
@@ -191,6 +208,9 @@ document.addEventListener('DOMContentLoaded', () => {
 		return interpolateColor(PROGRESS_COLORS.middle, PROGRESS_COLORS.end, (value - 0.5) * 2);
 	}
 
+	/**
+	 * 集中時間中のみ背景エフェクトを有効化
+	 */
 	function updateFocusBackground() {
 		if (!focusBackground) {
 			return;
@@ -218,12 +238,12 @@ document.addEventListener('DOMContentLoaded', () => {
 	function drawProgress() {
 		const total = Math.max(1, (timer.isWork ? timer.WORK_MINUTES : timer.BREAK_MINUTES) * 60);
 		const current = timer.minutes * 60 + timer.seconds;
-		let interpolatedCurrent = current;
+		let smoothedCurrent = current;
 		if (timer.isRunning && current > 0) {
-			const elapsedSinceLastTick = Math.min(1, Math.max(0, (Date.now() - timer.lastTickAt) / 1000));
-			interpolatedCurrent = Math.max(0, current - elapsedSinceLastTick);
+			const elapsedSeconds = Math.min(1, Math.max(0, (Date.now() - timer.lastTickAt) / 1000));
+			smoothedCurrent = Math.max(0, current - elapsedSeconds);
 		}
-		const percent = Math.max(0, Math.min(1, 1 - interpolatedCurrent / total));
+		const percent = Math.max(0, Math.min(1, 1 - smoothedCurrent / total));
 		ctx.clearRect(0, 0, progressCanvas.width, progressCanvas.height);
 		ctx.beginPath();
 		ctx.arc(90, 90, 80, 0, 2 * Math.PI);
