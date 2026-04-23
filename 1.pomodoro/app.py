@@ -11,4 +11,4 @@ def index():
 	return render_template('index.html', work_minutes=WORK_MINUTES, initial_seconds=INITIAL_SECONDS)
 
 if __name__ == '__main__':
-	app.run(debug=True)
+	app.run()
