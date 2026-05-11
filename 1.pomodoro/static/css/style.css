@@ -22,7 +22,7 @@
         font-size: 0.98rem;
         padding: 10px 0;
     }
-    .customize-section, .progress-summary {
+    .customize-section, .progress-summary, .gamification-section, .stats-section {
         padding: 10px 4vw 10px 4vw;
         margin-top: 16px;
     }
@@ -225,6 +225,63 @@ body {
     width: 100%;
     box-sizing: border-box;
     box-shadow: 0 2px 8px rgba(80, 80, 160, 0.06);
+}
+.gamification-section,
+.stats-section {
+    background: #f3f4fa;
+    border-radius: 16px;
+    margin-top: 20px;
+    padding: 18px 16px 14px 16px;
+    width: 100%;
+    box-sizing: border-box;
+    box-shadow: 0 2px 8px rgba(80, 80, 160, 0.06);
+}
+.streak-line {
+    margin-top: 10px;
+    font-size: 0.95rem;
+    color: #666;
+}
+.badge-list {
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    color: #777;
+    font-size: 0.9rem;
+}
+.badge-item {
+    background: #fff;
+    border: 1px solid #d7dcff;
+    border-radius: 14px;
+    padding: 4px 10px;
+    color: #4e53a7;
+}
+.stats-block {
+    margin-top: 10px;
+}
+.stats-label {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+}
+.stats-bar {
+    width: 100%;
+    height: 10px;
+    background: #e5e6ef;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    overflow: hidden;
+}
+.stats-fill {
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, #7b5cff 0%, #4e8cff 100%);
+    border-radius: 8px;
+}
+.stats-fill-focus {
+    background: linear-gradient(90deg, #00b894 0%, #24d39c 100%);
 }
 .summary-title {
     font-size: 1rem;
